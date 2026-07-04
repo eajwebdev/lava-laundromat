@@ -56,7 +56,7 @@ class LoginController extends Controller
             'super_admin' => redirect()->route('dashboard'),
             'admin' => redirect()->route('dashboard'),
             'branch_manager' => redirect()->route('dashboard'),
-            'cashier' => redirect()->route('dashboard'),
+            'cashier' => redirect()->route('admin.job-orders.create'),
             default => redirect()->route('dashboard'),
         };
     }

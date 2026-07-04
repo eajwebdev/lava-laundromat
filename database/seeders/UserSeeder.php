@@ -25,6 +25,7 @@ class UserSeeder extends Seeder
                     'name' => 'Main Branch',
                     'address' => 'Main Office',
                     'contact_number' => null,
+                    'machine_count' => 5,
                     'is_active' => true,
                 ]
             )->id;

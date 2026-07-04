@@ -78,7 +78,11 @@
             <form method="POST" action="{{ route('admin.petty-cash.store') }}" class="space-y-3">
                 @csrf
                 <input type="hidden" name="branch_id" value="{{ $branch->id }}">
-                <input type="hidden" name="movement_date" value="{{ $businessDate }}">
+
+                <label class="block">
+                    <span class="text-xs font-medium text-muted">Date</span>
+                    <input name="movement_date" type="date" required value="{{ old('movement_date', \Illuminate\Support\Carbon::today()->toDateString()) }}" class="mt-1 h-10 w-full rounded-md border border-border bg-white px-3 text-sm dark:border-gray-800 dark:bg-gray-950">
+                </label>
 
                 <label class="block">
                     <span class="text-xs font-medium text-muted">Voucher Type</span>
