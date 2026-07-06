@@ -34,10 +34,10 @@ class AccountsPayableTest extends TestCase
 
         $payable = AccountsPayable::query()->firstOrFail();
         $this->assertSame('5000.00', $payable->balance);
-        $this->assertDatabaseHas('money_movements', [
+        // Owner funding is a liability record only; it must not appear as drawer cash-in.
+        $this->assertDatabaseMissing('money_movements', [
             'branch_id' => $branch->id,
             'direction' => 'in',
-            'amount' => 5000,
         ]);
 
         $this->actingAs($manager)
@@ -69,7 +69,7 @@ class AccountsPayableTest extends TestCase
         ]);
     }
 
-    public function test_expense_record_is_forced_to_store_funded_even_when_owner_is_submitted(): void
+    public function test_owner_funded_expense_creates_linked_payable_without_cash_movement(): void
     {
         [$branch, $manager] = $this->financeUser(['expenses', 'accounts_payable']);
 
@@ -82,6 +82,35 @@ class AccountsPayableTest extends TestCase
                 'expense_date' => today()->toDateString(),
                 'payment_method' => 'cash',
                 'paid_from' => 'owner',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $expense = \App\Models\BranchExpense::query()->firstOrFail();
+        $this->assertSame('owner', $expense->paid_from);
+        $this->assertNotNull($expense->accounts_payable_id);
+
+        $payable = AccountsPayable::query()->firstOrFail();
+        $this->assertSame('owner_paid_expense', $payable->source_type);
+        $this->assertSame($expense->id, (int) $payable->source_id);
+        $this->assertSame('1250.00', $payable->balance);
+        $this->assertSame('unpaid', $payable->status);
+        // Owner paid with personal money: nothing entered or left the drawer.
+        $this->assertDatabaseCount('money_movements', 0);
+    }
+
+    public function test_store_funded_expense_does_not_create_payable(): void
+    {
+        [$branch, $manager] = $this->financeUser(['expenses', 'accounts_payable']);
+
+        $this->actingAs($manager)
+            ->post(route('admin.expenses.store'), [
+                'branch_id' => $branch->id,
+                'category' => 'supplies',
+                'title' => 'Detergent supplies',
+                'amount' => 1250,
+                'expense_date' => today()->toDateString(),
+                'payment_method' => 'cash',
+                'paid_from' => 'store_cash',
             ])
             ->assertSessionHasNoErrors();
 

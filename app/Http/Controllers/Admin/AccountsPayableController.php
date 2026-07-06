@@ -98,19 +98,9 @@ class AccountsPayableController extends Controller
                 'due_date' => filled($validated['due_date'] ?? null) ? Carbon::parse($validated['due_date'])->toDateString() : null,
             ]);
 
-            if ($validated['funding_method'] === 'cash') {
-                MoneyMovement::query()->create([
-                    'branch_id' => $branchId,
-                    'recorded_by' => $user->id,
-                    'movement_date' => $payable->funded_at,
-                    'type' => 'deposit',
-                    'direction' => 'in',
-                    'amount' => $amount,
-                    'reference_no' => $payable->payable_number,
-                    'description' => "Owner funding received: {$payable->description}",
-                ]);
-            }
-
+            // Owner-paid purchases are a liability to the owner, not drawer cash.
+            // No money movement is recorded here: cash never entered the drawer,
+            // so it must not inflate the Z-reading's cash added / expected cash.
             Activity::log($request, 'accounts_payable_created', $payable, [
                 'payable_number' => $payable->payable_number,
                 'amount' => $amount,

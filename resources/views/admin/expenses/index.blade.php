@@ -33,7 +33,7 @@
                 Cash management
             </div>
             <h1 class="text-xl font-semibold tracking-normal">Expenses</h1>
-            <p class="text-sm text-muted">Record store-paid business costs by category for cash, GCash, or bank reconciliation.</p>
+            <p class="text-sm text-muted">Record business costs paid with store funds or the owner's own money. Owner-funded expenses are tracked as payables for reimbursement.</p>
         </div>
 
         <button type="button" @click="createOpen = true" class="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-white hover:opacity-90">
@@ -52,7 +52,7 @@
             <p class="mt-1 text-lg font-semibold">{{ $currency }} {{ number_format((float) ($summary->store_cash_expenses ?? 0), 2) }}</p>
         </div>
         <div class="rounded-lg border border-border bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <p class="text-xs text-muted">Legacy Owner-Paid Records</p>
+            <p class="text-xs text-muted">Owner-Funded (For Reimbursement)</p>
             <p class="mt-1 text-lg font-semibold">{{ $currency }} {{ number_format((float) ($summary->owner_expenses ?? 0), 2) }}</p>
         </div>
     </div>
@@ -77,7 +77,7 @@
         <select name="paid_from" class="h-9 rounded-md border border-border bg-white px-3 text-sm dark:border-gray-800 dark:bg-gray-950">
             <option value="">All sources</option>
             <option value="store_cash" @selected(request('paid_from') === 'store_cash')>Store-funded</option>
-            <option value="owner" @selected(request('paid_from') === 'owner')>Legacy owner-paid</option>
+            <option value="owner" @selected(request('paid_from') === 'owner')>Owner-funded</option>
         </select>
 
         <select name="expense_type" class="h-9 rounded-md border border-border bg-white px-3 text-sm dark:border-gray-800 dark:bg-gray-950">
@@ -115,7 +115,7 @@
                             </td>
                             <td class="px-4 py-3">{{ $expense->branch?->name }}</td>
                             <td class="px-4 py-3">
-                                {{ $expense->paid_from === 'owner' ? 'Legacy owner-paid' : 'Store-funded' }}
+                                {{ $expense->paid_from === 'owner' ? 'Owner-funded' : 'Store-funded' }}
                                 @if($expense->accountsPayable)
                                     <p class="text-xs text-muted">{{ $expense->accountsPayable->payable_number }}</p>
                                 @endif
@@ -173,8 +173,10 @@
                     <label class="text-sm font-medium md:col-span-2">Title<input name="title" required placeholder="Detergent stock, gas, utilities..." class="mt-1.5 h-9 w-full rounded-md border border-border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"></label>
                     <label class="text-sm font-medium">Payment Method<input name="payment_method" placeholder="Cash, GCash, or Bank" class="mt-1.5 h-9 w-full rounded-md border border-border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"></label>
                     <label class="text-sm font-medium">Paid From
-                        <input type="hidden" name="paid_from" value="store_cash">
-                        <div class="mt-1.5 flex h-9 items-center rounded-md border border-border bg-smoke px-3 text-sm font-medium dark:border-gray-700 dark:bg-gray-950">Store-funded</div>
+                        <select name="paid_from" required class="mt-1.5 h-9 w-full rounded-md border border-border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950">
+                            <option value="store_cash">Store-funded (deducts from store cash)</option>
+                            <option value="owner">Owner-funded (store owes owner)</option>
+                        </select>
                     </label>
                     <label class="text-sm font-medium md:col-span-2">Reference<input name="reference_no" class="mt-1.5 h-9 w-full rounded-md border border-border bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-950"></label>
                     <label class="text-sm font-medium md:col-span-2">Remarks<textarea name="remarks" rows="3" class="mt-1.5 w-full rounded-md border border-border bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-950"></textarea></label>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountsPayable;
 use App\Models\Branch;
 use App\Models\BranchExpense;
 use App\Support\Activity;
@@ -92,7 +93,6 @@ class ExpenseController extends Controller
         $request->merge([
             'category' => $normalizedCategory,
             'expense_type' => $normalizedCategory,
-            'paid_from' => 'store_cash',
         ]);
 
         $validated = $request->validate([
@@ -102,7 +102,7 @@ class ExpenseController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01'],
             'expense_date' => ['required', 'date'],
             'payment_method' => ['nullable', 'string', 'max:100'],
-            'paid_from' => ['nullable', Rule::in(['store_cash'])],
+            'paid_from' => ['nullable', Rule::in(['store_cash', 'owner'])],
             'expense_type' => ['nullable', Rule::in(self::CATEGORIES)],
             'reference_no' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string'],
@@ -113,10 +113,34 @@ class ExpenseController extends Controller
         }
 
         $validated['expense_type'] = $validated['category'];
-        $validated['paid_from'] = 'store_cash';
+        $validated['paid_from'] = $validated['paid_from'] ?? 'store_cash';
 
         DB::transaction(function () use ($request, $validated, $user): void {
             $expense = BranchExpense::create($validated + ['created_by' => $user->id]);
+
+            // Owner-funded expenses never touch drawer/store cash. They create a
+            // payable instead, so the store tracks what it owes the owner.
+            if ($expense->paid_from === 'owner') {
+                $method = str($expense->payment_method ?: 'cash')->lower()->toString();
+                $payable = AccountsPayable::query()->create([
+                    'branch_id' => $expense->branch_id,
+                    'created_by' => $user->id,
+                    'payable_number' => $this->nextPayableNumber(),
+                    'creditor_name' => 'Owner',
+                    'source_type' => 'owner_paid_expense',
+                    'source_id' => $expense->id,
+                    'funding_method' => in_array($method, ['cash', 'bank', 'gcash', 'cheque'], true) ? $method : 'cash',
+                    'reference_no' => $expense->reference_no,
+                    'description' => 'Reimbursement for '.$expense->title,
+                    'original_amount' => $expense->amount,
+                    'paid_amount' => 0,
+                    'balance' => $expense->amount,
+                    'status' => 'unpaid',
+                    'funded_at' => $expense->expense_date,
+                ]);
+
+                $expense->update(['accounts_payable_id' => $payable->id]);
+            }
 
             Activity::log($request, 'expense_recorded', $expense, [
                 'title' => $expense->title,
@@ -147,6 +171,11 @@ class ExpenseController extends Controller
         });
 
         return back()->with('success', 'Expense removed successfully.');
+    }
+
+    private function nextPayableNumber(): string
+    {
+        return 'AP-'.now()->format('Ymd').'-'.str_pad((string) (AccountsPayable::whereDate('created_at', today())->count() + 1), 4, '0', STR_PAD_LEFT);
     }
 
     private function dateRange(Request $request): array
